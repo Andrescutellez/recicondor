@@ -194,7 +194,7 @@ export function CashList() {
             Saldo actual: <span className="font-semibold text-gray-900">{formatCOP(incomeTarget?.balance ?? 0)}</span>
           </p>
           <Input label="Monto a ingresar" type="number" inputMode="numeric" step="1" min="1" placeholder="0" error={iErr.amount?.message} {...iReg('amount')} />
-          <Input label="Descripción" placeholder="Ej: Aporte de la suegra" required error={iErr.description?.message} {...iReg('description')} />
+          <Input label="Descripción" placeholder="Ej: envio Diego" required error={iErr.description?.message} {...iReg('description')} />
           <div className="flex gap-2 pt-2">
             <Button variant="secondary" fullWidth onClick={() => { setIncomeTarget(null); iReset() }} type="button">Cancelar</Button>
             <Button fullWidth loading={addMovement.isPending} type="submit">Registrar ingreso</Button>
