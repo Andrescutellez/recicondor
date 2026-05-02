@@ -35,7 +35,7 @@ export function Reports() {
     <div className="space-y-6">
       {/* Date filters */}
       <Card>
-        <div className="flex items-center gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <Input
             label="Desde"
             type="date"
@@ -51,14 +51,14 @@ export function Reports() {
         </div>
       </Card>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-200">
+      {/* Tabs — scrollable on mobile */}
+      <div className="flex gap-0 border-b border-gray-200 overflow-x-auto scrollbar-none">
         {tabs.map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`
-              flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors
+              flex-shrink-0 flex items-center gap-1.5 px-3 py-3 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap
               ${activeTab === tab.key
                 ? 'border-green-600 text-green-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -84,10 +84,8 @@ function CashFlowReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string
   const { data, isLoading } = useQuery({
     queryKey: ['report_cashflow', dateFrom, dateTo],
     queryFn: async () => {
-      const fromISO = new Date(dateFrom).toISOString()
-      const toDate = new Date(dateTo)
-      toDate.setHours(23, 59, 59, 999)
-      const toISO = toDate.toISOString()
+      const fromISO = `${dateFrom}T00:00:00`
+      const toISO = `${dateTo}T23:59:59.999`
 
       const [movementsRes, expensesRes] = await Promise.all([
         supabase
@@ -98,8 +96,8 @@ function CashFlowReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string
         supabase
           .from('expenses')
           .select('amount, category, date')
-          .gte('date', fromISO)
-          .lte('date', toISO),
+          .gte('date', dateFrom)
+          .lte('date', dateTo),
       ])
 
       const movements = movementsRes.data ?? []
@@ -209,16 +207,11 @@ function PurchasesByMaterial({ dateFrom, dateTo }: { dateFrom: string; dateTo: s
   const { data = [], isLoading } = useQuery<MaterialStat[]>({
     queryKey: ['report_purchases_by_material', dateFrom, dateTo],
     queryFn: async () => {
-      const fromISO = new Date(dateFrom).toISOString()
-      const toDate = new Date(dateTo)
-      toDate.setHours(23, 59, 59, 999)
-      const toISO = toDate.toISOString()
-
       const { data: items, error } = await supabase
         .from('purchase_items')
         .select('quantity, price_per_unit, total, material:materials(id, name, unit), purchase:purchases(date, status)')
-        .gte('purchase.date', fromISO)
-        .lte('purchase.date', toISO)
+        .gte('purchase.date', `${dateFrom}T00:00:00`)
+        .lte('purchase.date', `${dateTo}T23:59:59.999`)
       if (error) throw error
 
       const map: Record<string, MaterialStat> = {}
@@ -297,16 +290,11 @@ function SalesByMaterial({ dateFrom, dateTo }: { dateFrom: string; dateTo: strin
   const { data = [], isLoading } = useQuery<MaterialStat[]>({
     queryKey: ['report_sales_by_material', dateFrom, dateTo],
     queryFn: async () => {
-      const fromISO = new Date(dateFrom).toISOString()
-      const toDate = new Date(dateTo)
-      toDate.setHours(23, 59, 59, 999)
-      const toISO = toDate.toISOString()
-
       const { data: items, error } = await supabase
         .from('sale_items')
         .select('quantity, price_per_unit, total, material:materials(id, name, unit), sale:sales(date, status)')
-        .gte('sale.date', fromISO)
-        .lte('sale.date', toISO)
+        .gte('sale.date', `${dateFrom}T00:00:00`)
+        .lte('sale.date', `${dateTo}T23:59:59.999`)
       if (error) throw error
 
       const map: Record<string, MaterialStat> = {}
@@ -399,22 +387,17 @@ function ProfitReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string }
   const { data = [], isLoading } = useQuery<ProfitRow[]>({
     queryKey: ['report_profit', dateFrom, dateTo],
     queryFn: async () => {
-      const fromISO = new Date(dateFrom).toISOString()
-      const toDate = new Date(dateTo)
-      toDate.setHours(23, 59, 59, 999)
-      const toISO = toDate.toISOString()
-
       const [purchasesRes, salesRes] = await Promise.all([
         supabase
           .from('purchase_items')
           .select('quantity, total, material:materials(id, name, unit), purchase:purchases(date, status)')
-          .gte('purchase.date', fromISO)
-          .lte('purchase.date', toISO),
+          .gte('purchase.date', `${dateFrom}T00:00:00`)
+          .lte('purchase.date', `${dateTo}T23:59:59.999`),
         supabase
           .from('sale_items')
           .select('quantity, total, material:materials(id, name, unit), sale:sales(date, status)')
-          .gte('sale.date', fromISO)
-          .lte('sale.date', toISO),
+          .gte('sale.date', `${dateFrom}T00:00:00`)
+          .lte('sale.date', `${dateTo}T23:59:59.999`),
       ])
 
       const pMap: Record<string, { name: string; unit: string; qty: number; cost: number }> = {}

@@ -92,57 +92,58 @@ export function PurchaseList() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
         {isLoading ? (
           <p className="px-6 py-8 text-sm text-gray-400 text-center">Cargando...</p>
         ) : filtered.length === 0 ? (
           <p className="px-6 py-8 text-sm text-gray-400 text-center">No hay compras que coincidan con los filtros</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px]">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="w-8" />
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fecha</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Proveedor</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">Operador</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase hidden lg:table-cell">Caja</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">Estado</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filtered.map((p) => (
-                  <>
-                    <tr
-                      key={p.id}
-                      className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => toggleExpand(p.id)}
-                    >
-                      <td className="pl-4 py-3 text-gray-400">
-                        {expandedId === p.id
-                          ? <ChevronDown className="w-4 h-4" />
-                          : <ChevronRight className="w-4 h-4" />}
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="w-8" />
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">Fecha</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Proveedor</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">Operador</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase hidden lg:table-cell">Caja</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">Estado</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filtered.map((p) => (
+                <>
+                  <tr
+                    key={p.id}
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => toggleExpand(p.id)}
+                  >
+                    <td className="pl-4 py-3 text-gray-400">
+                      {expandedId === p.id
+                        ? <ChevronDown className="w-4 h-4" />
+                        : <ChevronRight className="w-4 h-4" />}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap hidden sm:table-cell">{formatDate(p.date)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      <div className="font-medium">{p.provider?.name ?? <span className="text-gray-400">Sin proveedor</span>}</div>
+                      <div className="text-xs text-gray-400 sm:hidden">{formatDate(p.date)}</div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700 hidden md:table-cell">{p.operator?.name ?? '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700 hidden lg:table-cell">{(p.cash_register as { name: string } | undefined)?.name ?? '—'}</td>
+                    <td className="px-4 py-3 text-center hidden sm:table-cell"><StatusBadge status={p.status} /></td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-900 whitespace-nowrap">{formatCOP(p.total)}</td>
+                  </tr>
+                  {expandedId === p.id && (
+                    <tr key={`${p.id}-detail`}>
+                      <td colSpan={7} className="bg-green-50 px-4 md:px-8 py-3">
+                        <PurchaseItemsDetail purchaseId={p.id} />
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{formatDate(p.date)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{p.provider?.name ?? <span className="text-gray-400">Sin proveedor</span>}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700 hidden md:table-cell">{p.operator?.name ?? '—'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700 hidden lg:table-cell">{(p.cash_register as { name: string } | undefined)?.name ?? '—'}</td>
-                      <td className="px-4 py-3 text-center hidden sm:table-cell"><StatusBadge status={p.status} /></td>
-                      <td className="px-4 py-3 text-right font-semibold text-gray-900 whitespace-nowrap">{formatCOP(p.total)}</td>
                     </tr>
-                    {expandedId === p.id && (
-                      <tr key={`${p.id}-detail`}>
-                        <td colSpan={7} className="bg-green-50 px-4 md:px-8 py-3">
-                          <PurchaseItemsDetail purchaseId={p.id} />
-                        </td>
-                      </tr>
-                    )}
-                  </>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                  )}
+                </>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
