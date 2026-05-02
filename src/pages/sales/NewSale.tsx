@@ -128,7 +128,6 @@ export function NewSale() {
 
   const createSale = useMutation({
     mutationFn: async () => {
-      if (!cashRegisterId) throw new Error('Seleccione una caja')
       if (items.length === 0) throw new Error('Agregue al menos un material')
 
       const { data: sale, error: saleError } = await supabase
@@ -136,7 +135,7 @@ export function NewSale() {
         .insert({
           customer_name: customerName || null,
           operator_id: operatorId || null,
-          cash_register_id: cashRegisterId,
+          cash_register_id: cashRegisterId || null,
           total: grandTotal,
           notes: notes || null,
           created_by: profile?.id,
@@ -157,16 +156,19 @@ export function NewSale() {
       const { error: itemsError } = await supabase.from('sale_items').insert(saleItems)
       if (itemsError) throw itemsError
 
-      const { error: cashError } = await supabase.from('cash_movements').insert({
-        cash_register_id: cashRegisterId,
-        type: 'income',
-        amount: grandTotal,
-        reference_type: 'sale',
-        reference_id: sale.id,
-        description: `Venta #${sale.id.slice(0, 8)}`,
-        user_id: profile?.id,
-      })
-      if (cashError) throw cashError
+      // Solo mover caja si el pago fue en la ECA (no pago externo)
+      if (cashRegisterId) {
+        const { error: cashError } = await supabase.from('cash_movements').insert({
+          cash_register_id: cashRegisterId,
+          type: 'income',
+          amount: grandTotal,
+          reference_type: 'sale',
+          reference_id: sale.id,
+          description: `Venta #${sale.id.slice(0, 8)}`,
+          user_id: profile?.id,
+        })
+        if (cashError) throw cashError
+      }
 
       return sale
     },
@@ -215,12 +217,12 @@ export function NewSale() {
             onChange={e => setOperatorId(e.target.value)}
           />
           <Select
-            label="Caja"
+            label="Caja (pago en ECA)"
             options={cashOptions}
-            placeholder="Seleccionar caja"
+            placeholder="Pago externo / transferencia"
             value={cashRegisterId}
             onChange={e => setCashRegisterId(e.target.value)}
-            required
+            hint={!cashRegisterId ? 'El dinero NO entrará a ninguna caja de la ECA' : undefined}
           />
           <Input
             label="Notas"
@@ -346,10 +348,10 @@ export function NewSale() {
           size="lg"
           icon={<CheckCircle className="w-5 h-5" />}
           loading={createSale.isPending}
-          disabled={items.length === 0 || !cashRegisterId}
+          disabled={items.length === 0}
           onClick={() => createSale.mutate()}
         >
-          Registrar Venta — {formatCOP(grandTotal)}
+          {cashRegisterId ? 'Registrar Venta' : 'Registrar Venta (pago externo)'} — {formatCOP(grandTotal)}
         </Button>
       </div>
     </div>
