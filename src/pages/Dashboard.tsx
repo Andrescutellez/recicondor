@@ -107,7 +107,7 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         <StatCard
           title="Total en Cajas"
           value={stats.data ? formatCOP(stats.data.totalCash) : '—'}

@@ -8,7 +8,7 @@ interface CardProps {
 
 export function Card({ children, className = '', padding = true }: CardProps) {
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 ${padding ? 'p-6' : ''} ${className}`}>
+    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 ${padding ? 'p-4 lg:p-6' : ''} ${className}`}>
       {children}
     </div>
   )
@@ -25,17 +25,17 @@ interface StatCardProps {
 
 export function StatCard({ title, value, icon, iconBg = 'bg-green-100', subtitle }: StatCardProps) {
   return (
-    <Card>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-500">{title}</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{value}</p>
-          {subtitle && <p className="mt-1 text-xs text-gray-400">{subtitle}</p>}
-        </div>
-        <div className={`p-3 rounded-xl ${iconBg}`}>
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 lg:p-5">
+      <div className="flex items-center gap-3">
+        <div className={`p-2 lg:p-2.5 rounded-xl flex-shrink-0 ${iconBg}`}>
           {icon}
         </div>
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-gray-500 truncate">{title}</p>
+          <p className="text-lg lg:text-2xl font-bold text-gray-900 leading-tight">{value}</p>
+          {subtitle && <p className="text-xs text-gray-400 hidden lg:block">{subtitle}</p>}
+        </div>
       </div>
-    </Card>
+    </div>
   )
 }

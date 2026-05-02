@@ -88,8 +88,8 @@ export function SaleList() {
               className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
-          <Input label="" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
-          <Input label="" type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)} />
+          <Input label="Fecha desde" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+          <Input label="Fecha hasta" type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)} />
         </div>
       </div>
 
@@ -99,49 +99,51 @@ export function SaleList() {
         ) : filtered.length === 0 ? (
           <p className="px-6 py-8 text-sm text-gray-400 text-center">No hay ventas que coincidan con los filtros</p>
         ) : (
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="w-8" />
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fecha</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cliente</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Operador</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Caja</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Estado</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filtered.map((s) => (
-                <>
-                  <tr
-                    key={s.id}
-                    className="hover:bg-gray-50 cursor-pointer"
-                    onClick={() => toggleExpand(s.id)}
-                  >
-                    <td className="pl-4 py-3 text-gray-400">
-                      {expandedId === s.id
-                        ? <ChevronDown className="w-4 h-4" />
-                        : <ChevronRight className="w-4 h-4" />}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-600">{formatDate(s.date)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{s.customer_name ?? <span className="text-gray-400">Comprador general</span>}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{s.operator?.name ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{(s.cash_register as { name: string } | undefined)?.name ?? '—'}</td>
-                    <td className="px-4 py-3 text-center"><StatusBadge status={s.status} /></td>
-                    <td className="px-4 py-3 text-right font-semibold text-green-700">{formatCOP(s.total)}</td>
-                  </tr>
-                  {expandedId === s.id && (
-                    <tr key={`${s.id}-detail`}>
-                      <td colSpan={7} className="bg-green-50 px-8 py-3">
-                        <SaleItemsDetail saleId={s.id} />
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[500px]">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="w-8" />
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fecha</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cliente</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">Operador</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase hidden lg:table-cell">Caja</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">Estado</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filtered.map((s) => (
+                  <>
+                    <tr
+                      key={s.id}
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => toggleExpand(s.id)}
+                    >
+                      <td className="pl-4 py-3 text-gray-400">
+                        {expandedId === s.id
+                          ? <ChevronDown className="w-4 h-4" />
+                          : <ChevronRight className="w-4 h-4" />}
                       </td>
+                      <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{formatDate(s.date)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{s.customer_name ?? <span className="text-gray-400">Comprador general</span>}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700 hidden md:table-cell">{s.operator?.name ?? '—'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700 hidden lg:table-cell">{(s.cash_register as { name: string } | undefined)?.name ?? '—'}</td>
+                      <td className="px-4 py-3 text-center hidden sm:table-cell"><StatusBadge status={s.status} /></td>
+                      <td className="px-4 py-3 text-right font-semibold text-green-700 whitespace-nowrap">{formatCOP(s.total)}</td>
                     </tr>
-                  )}
-                </>
-              ))}
-            </tbody>
-          </table>
+                    {expandedId === s.id && (
+                      <tr key={`${s.id}-detail`}>
+                        <td colSpan={7} className="bg-green-50 px-4 md:px-8 py-3">
+                          <SaleItemsDetail saleId={s.id} />
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

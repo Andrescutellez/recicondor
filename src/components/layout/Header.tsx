@@ -36,16 +36,24 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   return (
     <header className="h-14 lg:h-16 bg-white border-b border-gray-100 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-10">
-      {/* Hamburger — only on mobile */}
-      <button
-        onClick={onMenuClick}
-        className="lg:hidden p-2 -ml-2 rounded-lg text-gray-500 hover:bg-gray-100 active:bg-gray-200 transition-colors"
-        aria-label="Abrir menú"
-      >
-        <Menu className="w-5 h-5" />
-      </button>
+      {/* Left: hamburger + logo on mobile */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onMenuClick}
+          className="lg:hidden p-2 -ml-2 rounded-lg text-gray-500 hover:bg-gray-100 active:bg-gray-200 transition-colors"
+          aria-label="Abrir menú"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <img
+          src="/logo-recicondor.png"
+          alt="Recicondor"
+          className="lg:hidden h-8 w-auto object-contain"
+          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+        />
+      </div>
 
-      <h1 className="text-base lg:text-xl font-semibold text-gray-900 capitalize ml-1 lg:ml-0">
+      <h1 className="text-base lg:text-xl font-semibold text-gray-900 capitalize lg:ml-0 absolute left-1/2 -translate-x-1/2 lg:static lg:translate-x-0">
         {title}
       </h1>
 
