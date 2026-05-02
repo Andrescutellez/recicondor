@@ -138,29 +138,6 @@ export function Dashboard() {
         />
       </div>
 
-      {/* Low inventory alert */}
-      {(lowInventory.data?.length ?? 0) > 0 && (
-        <Card>
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-2">
-                Materiales con inventario en cero o negativo
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {lowInventory.data?.map((inv: { material_id: string; quantity: number; material?: { name: string; unit: string } }) => (
-                  <Link key={inv.material_id} to={`/inventory/kardex/${inv.material_id}`}>
-                    <Badge color={inv.quantity < 0 ? 'red' : 'yellow'}>
-                      {inv.material?.name} ({inv.quantity?.toFixed(3)} {inv.material?.unit})
-                    </Badge>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
       {/* Inventory summary */}
       <Card padding={false}>
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">

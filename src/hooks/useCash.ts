@@ -46,16 +46,28 @@ export function useAddCashMovement() {
       amount: number
       description: string
       user_id: string
+      reference_type?: string
     }) => {
-      const { error } = await supabase.from('cash_movements').insert({
-        ...data,
-        reference_type: 'manual',
-      })
+      const { reference_type = 'manual', ...rest } = data
+      const { error } = await supabase.from('cash_movements').insert({ ...rest, reference_type })
       if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cash_registers'] })
       queryClient.invalidateQueries({ queryKey: ['cash_movements'] })
+    },
+  })
+}
+
+export function useDeleteCashRegister() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('cash_registers').update({ active: false }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cash_registers'] })
     },
   })
 }

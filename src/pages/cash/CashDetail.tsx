@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Plus, ChevronDown, ChevronRight, Package, Lock } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Package, Lock, PlusCircle, SlidersHorizontal } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -11,25 +11,30 @@ import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
-import { Select } from '../../components/ui/Select'
 import { MovementTypeBadge } from '../../components/ui/Badge'
 import { useAddCashMovement } from '../../hooks/useCash'
 import { useAuth } from '../../hooks/useAuth'
 import { formatCOP, formatDate, formatQty } from '../../lib/format'
 
-const movementSchema = z.object({
-  type: z.enum(['income', 'expense']),
-  amount: z.coerce.number().positive('Debe ser mayor a 0'),
+const incomeSchema = z.object({
+  amount:      z.coerce.number().positive('Debe ser mayor a 0'),
   description: z.string().min(1, 'Requerido'),
 })
-type MovementForm = z.infer<typeof movementSchema>
+type IncomeForm = z.infer<typeof incomeSchema>
+
+const adjustSchema = z.object({
+  new_balance: z.coerce.number().min(0, 'No puede ser negativo'),
+  description: z.string().min(1, 'Requerido'),
+})
+type AdjustForm = z.infer<typeof adjustSchema>
 
 export function CashDetail() {
   // ALL hooks must be at top level, before any conditional return
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { profile } = useAuth()
-  const [addOpen, setAddOpen] = useState(false)
+  const [incomeOpen, setIncomeOpen] = useState(false)
+  const [adjustOpen, setAdjustOpen] = useState(false)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -65,26 +70,41 @@ export function CashDetail() {
     enabled: !!id && profile?.role !== 'operator',
   })
 
-  const { register: formRegister, handleSubmit, formState: { errors }, reset } = useForm<MovementForm>({
-    resolver: zodResolver(movementSchema),
-    defaultValues: { type: 'income', amount: 0, description: '' },
-  })
+  const {
+    register: iReg, handleSubmit: iSubmit, formState: { errors: iErr }, reset: iReset,
+  } = useForm<IncomeForm>({ resolver: zodResolver(incomeSchema) })
 
-  const onSubmit = async (data: MovementForm) => {
+  const {
+    register: aReg, handleSubmit: aSubmit, formState: { errors: aErr }, reset: aReset,
+  } = useForm<AdjustForm>({ resolver: zodResolver(adjustSchema) })
+
+  const onIncome = async (data: IncomeForm) => {
     if (!profile || !id) return
     try {
       await addMovement.mutateAsync({
+        cash_register_id: id, type: 'income',
+        amount: data.amount, description: data.description,
+        user_id: profile.id, reference_type: 'manual',
+      })
+      setIncomeOpen(false); iReset()
+    } catch (err) { console.error(err) }
+  }
+
+  const onAdjust = async (data: AdjustForm) => {
+    if (!profile || !id || !cashRegister) return
+    const diff = data.new_balance - cashRegister.balance
+    if (diff === 0) { setAdjustOpen(false); aReset(); return }
+    try {
+      await addMovement.mutateAsync({
         cash_register_id: id,
-        type: data.type,
-        amount: data.amount,
+        type: diff > 0 ? 'income' : 'expense',
+        amount: Math.abs(diff),
         description: data.description,
         user_id: profile.id,
+        reference_type: 'adjustment',
       })
-      setAddOpen(false)
-      reset()
-    } catch (err) {
-      console.error(err)
-    }
+      setAdjustOpen(false); aReset()
+    } catch (err) { console.error(err) }
   }
 
   const toggleExpand = (movId: string) => setExpandedId(prev => prev === movId ? null : movId)
@@ -124,9 +144,14 @@ export function CashDetail() {
             </p>
           </div>
         </div>
-        <Button icon={<Plus className="w-4 h-4" />} onClick={() => setAddOpen(true)}>
-          Movimiento Manual
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="secondary" icon={<PlusCircle className="w-4 h-4" />} onClick={() => setIncomeOpen(true)}>
+            Ingresar dinero
+          </Button>
+          <Button size="sm" variant="warning" icon={<SlidersHorizontal className="w-4 h-4" />} onClick={() => setAdjustOpen(true)}>
+            Ajuste
+          </Button>
+        </div>
       </div>
 
       {/* Period summary */}
@@ -233,41 +258,41 @@ export function CashDetail() {
         )}
       </div>
 
-      {/* Add movement modal */}
-      <Modal open={addOpen} onClose={() => { setAddOpen(false); reset() }} title="Movimiento Manual">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <Select
-            label="Tipo"
-            options={[
-              { value: 'income', label: 'Ingreso' },
-              { value: 'expense', label: 'Egreso' },
-            ]}
-            error={errors.type?.message}
-            {...formRegister('type')}
-          />
-          <Input
-            label="Monto"
-            type="number"
-            step="1"
-            min="1"
-            placeholder="0"
-            error={errors.amount?.message}
-            {...formRegister('amount')}
-          />
-          <Input
-            label="Descripción"
-            placeholder="Motivo del movimiento"
-            required
-            error={errors.description?.message}
-            {...formRegister('description')}
-          />
+      {/* Income Modal */}
+      <Modal open={incomeOpen} onClose={() => { setIncomeOpen(false); iReset() }} title="Ingresar dinero a la caja">
+        <form onSubmit={iSubmit(onIncome)} className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Saldo actual: <span className="font-semibold text-gray-900">{formatCOP(cashRegister?.balance ?? 0)}</span>
+          </p>
+          <Input label="Monto a ingresar" type="number" inputMode="numeric" step="1" min="1" placeholder="0"
+            error={iErr.amount?.message} {...iReg('amount')} />
+          <Input label="Descripción" placeholder="Ej: Aporte de la suegra, cobro de deuda..." required
+            error={iErr.description?.message} {...iReg('description')} />
           <div className="flex gap-2 pt-2">
-            <Button variant="secondary" fullWidth onClick={() => { setAddOpen(false); reset() }} type="button">
-              Cancelar
-            </Button>
-            <Button fullWidth loading={addMovement.isPending} type="submit">
-              Registrar
-            </Button>
+            <Button variant="secondary" fullWidth onClick={() => { setIncomeOpen(false); iReset() }} type="button">Cancelar</Button>
+            <Button fullWidth loading={addMovement.isPending} type="submit">Registrar ingreso</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Adjustment Modal */}
+      <Modal open={adjustOpen} onClose={() => { setAdjustOpen(false); aReset() }} title="Ajuste de saldo">
+        <form onSubmit={aSubmit(onAdjust)} className="space-y-4">
+          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+            Usa esto para <strong>corregir errores</strong>, no para registrar ingresos normales.
+            El sistema calculará la diferencia y creará un movimiento de ajuste.
+          </div>
+          <p className="text-sm text-gray-500">
+            Saldo actual: <span className="font-semibold text-gray-900">{formatCOP(cashRegister?.balance ?? 0)}</span>
+          </p>
+          <Input label="Saldo correcto (nuevo saldo)" type="number" inputMode="numeric" step="1" min="0"
+            placeholder={String(cashRegister?.balance ?? 0)}
+            error={aErr.new_balance?.message} {...aReg('new_balance')} />
+          <Input label="Motivo del ajuste" placeholder="Ej: Error al ingresar monto, corrección de cuadre..."
+            required error={aErr.description?.message} {...aReg('description')} />
+          <div className="flex gap-2 pt-2">
+            <Button variant="secondary" fullWidth onClick={() => { setAdjustOpen(false); aReset() }} type="button">Cancelar</Button>
+            <Button variant="warning" fullWidth loading={addMovement.isPending} type="submit">Aplicar ajuste</Button>
           </div>
         </form>
       </Modal>
