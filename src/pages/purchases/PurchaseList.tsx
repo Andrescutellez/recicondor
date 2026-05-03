@@ -35,8 +35,8 @@ export function PurchaseList() {
         .select('*, operator:profiles!operator_id(name), provider:providers(name), cash_register:cash_registers(name)')
         .order('date', { ascending: false })
 
-      if (dateFrom) q = q.gte('date', `${dateFrom}T00:00:00`)
-      if (dateTo)   q = q.lte('date', `${dateTo}T23:59:59.999`)
+      if (dateFrom) q = q.gte('date', new Date(dateFrom + 'T00:00:00').toISOString())
+      if (dateTo)   q = q.lte('date', new Date(dateTo + 'T23:59:59.999').toISOString())
       if (operatorId) q = q.eq('operator_id', operatorId)
 
       const { data, error } = await q

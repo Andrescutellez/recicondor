@@ -9,20 +9,19 @@ import {
 import { supabase } from '../lib/supabase'
 import { StatCard, Card } from '../components/ui/Card'
 import { Badge, StatusBadge } from '../components/ui/Badge'
-import { formatCOP, formatQty } from '../lib/format'
+import { formatCOP, formatQty, localDateStr } from '../lib/format'
 
 function useStats() {
   return useQuery({
     queryKey: ['dashboard_stats'],
     queryFn: async () => {
-      const today = new Date()
-      const todayStr = today.toISOString().slice(0, 10)
+      const todayStr = localDateStr()
 
       const [cashRes, inventoryRes, purchasesRes, salesRes] = await Promise.all([
         supabase.from('cash_registers').select('balance').eq('active', true),
         supabase.from('inventory').select('quantity, avg_cost'),
-        supabase.from('purchases').select('total').eq('status', 'active').gte('date', `${todayStr}T00:00:00`),
-        supabase.from('sales').select('total').eq('status', 'active').gte('date', `${todayStr}T00:00:00`),
+        supabase.from('purchases').select('total').eq('status', 'active').gte('date', new Date(todayStr + 'T00:00:00').toISOString()),
+        supabase.from('sales').select('total').eq('status', 'active').gte('date', new Date(todayStr + 'T00:00:00').toISOString()),
       ])
 
       const totalCash = (cashRes.data ?? []).reduce((s, r) => s + (r.balance ?? 0), 0)

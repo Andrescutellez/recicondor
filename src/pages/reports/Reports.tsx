@@ -6,7 +6,7 @@ import { es } from 'date-fns/locale'
 import { supabase } from '../../lib/supabase'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { formatCOP, formatQty } from '../../lib/format'
+import { formatCOP, formatQty, localDateStr } from '../../lib/format'
 
 type Tab = 'summary' | 'cashflow' | 'purchases' | 'sales' | 'profit' | 'extracto'
 
@@ -20,12 +20,11 @@ const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
 ]
 
 function getDefaultDates() {
-  const end = new Date()
-  const start = new Date()
-  start.setDate(1)
+  const today = localDateStr()
+  const [y, m] = today.split('-')
   return {
-    from: start.toISOString().slice(0, 10),
-    to:   end.toISOString().slice(0, 10),
+    from: `${y}-${m}-01`,
+    to:   today,
   }
 }
 
@@ -97,8 +96,8 @@ function DailyReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string })
   const { data, isLoading } = useQuery({
     queryKey: ['report_daily', dateFrom, dateTo],
     queryFn: async () => {
-      const from = `${dateFrom}T00:00:00`
-      const to   = `${dateTo}T23:59:59.999`
+      const from = new Date(dateFrom + 'T00:00:00').toISOString()
+      const to   = new Date(dateTo + 'T23:59:59.999').toISOString()
 
       const [purchasesRes, salesRes, expensesRes] = await Promise.all([
         supabase.from('purchases')
@@ -433,8 +432,8 @@ function ExtractoReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string
       const { data: rows, error } = await supabase
         .from('cash_movements')
         .select('id, type, amount, reference_type, description, created_at, cash_register:cash_registers(name), user:profiles!user_id(name)')
-        .gte('created_at', `${dateFrom}T00:00:00`)
-        .lte('created_at', `${dateTo}T23:59:59.999`)
+        .gte('created_at', new Date(dateFrom + 'T00:00:00').toISOString())
+        .lte('created_at', new Date(dateTo + 'T23:59:59.999').toISOString())
         .order('created_at', { ascending: false })
       if (error) throw error
       return (rows ?? []) as unknown as MovimientoRow[]
@@ -592,8 +591,8 @@ function CashFlowReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string
   const { data, isLoading } = useQuery({
     queryKey: ['report_cashflow', dateFrom, dateTo],
     queryFn: async () => {
-      const fromISO = `${dateFrom}T00:00:00`
-      const toISO   = `${dateTo}T23:59:59.999`
+      const fromISO = new Date(dateFrom + 'T00:00:00').toISOString()
+      const toISO   = new Date(dateTo + 'T23:59:59.999').toISOString()
 
       const [movementsRes, expensesRes] = await Promise.all([
         supabase.from('cash_movements').select('type, amount, reference_type, created_at')
@@ -668,8 +667,8 @@ function PurchasesByMaterial({ dateFrom, dateTo }: { dateFrom: string; dateTo: s
       const { data: items, error } = await supabase
         .from('purchase_items')
         .select('quantity, price_per_unit, total, material:materials(id, name, unit), purchase:purchases(date, status)')
-        .gte('purchase.date', `${dateFrom}T00:00:00`)
-        .lte('purchase.date', `${dateTo}T23:59:59.999`)
+        .gte('purchase.date', new Date(dateFrom + 'T00:00:00').toISOString())
+        .lte('purchase.date', new Date(dateTo + 'T23:59:59.999').toISOString())
       if (error) throw error
 
       const map: Record<string, MaterialStat> = {}
@@ -742,8 +741,8 @@ function SalesByMaterial({ dateFrom, dateTo }: { dateFrom: string; dateTo: strin
       const { data: items, error } = await supabase
         .from('sale_items')
         .select('quantity, price_per_unit, total, material:materials(id, name, unit), sale:sales(date, status)')
-        .gte('sale.date', `${dateFrom}T00:00:00`)
-        .lte('sale.date', `${dateTo}T23:59:59.999`)
+        .gte('sale.date', new Date(dateFrom + 'T00:00:00').toISOString())
+        .lte('sale.date', new Date(dateTo + 'T23:59:59.999').toISOString())
       if (error) throw error
 
       const map: Record<string, MaterialStat> = {}
@@ -824,10 +823,10 @@ function ProfitReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string }
       const [purchasesRes, salesRes] = await Promise.all([
         supabase.from('purchase_items')
           .select('quantity, total, material:materials(id, name, unit), purchase:purchases(date, status)')
-          .gte('purchase.date', `${dateFrom}T00:00:00`).lte('purchase.date', `${dateTo}T23:59:59.999`),
+          .gte('purchase.date', new Date(dateFrom + 'T00:00:00').toISOString()).lte('purchase.date', new Date(dateTo + 'T23:59:59.999').toISOString()),
         supabase.from('sale_items')
           .select('quantity, total, material:materials(id, name, unit), sale:sales(date, status)')
-          .gte('sale.date', `${dateFrom}T00:00:00`).lte('sale.date', `${dateTo}T23:59:59.999`),
+          .gte('sale.date', new Date(dateFrom + 'T00:00:00').toISOString()).lte('sale.date', new Date(dateTo + 'T23:59:59.999').toISOString()),
       ])
 
       const pMap: Record<string, { name: string; unit: string; qty: number; cost: number }> = {}

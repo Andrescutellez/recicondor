@@ -14,7 +14,7 @@ import { Table, Column } from '../../components/ui/Table'
 import { Badge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
 import { useAuth } from '../../hooks/useAuth'
-import { formatCOP, formatDate } from '../../lib/format'
+import { formatCOP, formatDate, localDateStr } from '../../lib/format'
 
 const expenseSchema = z.object({
   category: z.enum(['salary', 'transport', 'supplies', 'maintenance', 'other']),
@@ -58,7 +58,7 @@ export function ExpenseList() {
         .select('*, cash_register:cash_registers(name), user:profiles(name)')
         .order('date', { ascending: false })
 
-      if (dateFrom) q = q.gte('date', new Date(dateFrom).toISOString())
+      if (dateFrom) q = q.gte('date', new Date(dateFrom + 'T00:00:00').toISOString())
       if (dateTo) {
         const end = new Date(dateTo)
         end.setHours(23, 59, 59, 999)
@@ -76,7 +76,7 @@ export function ExpenseList() {
     resolver: zodResolver(expenseSchema),
     defaultValues: {
       category: 'other',
-      date: new Date().toISOString().split('T')[0],
+      date: localDateStr(),
     },
   })
 
@@ -87,7 +87,7 @@ export function ExpenseList() {
         .insert({
           ...data,
           user_id: profile?.id,
-          date: new Date(data.date).toISOString(),
+          date: new Date(data.date + 'T00:00:00').toISOString(),
         })
         .select()
         .single()

@@ -30,8 +30,8 @@ export function SaleList() {
         .select('*, operator:profiles!operator_id(name), cash_register:cash_registers(name)')
         .order('date', { ascending: false })
 
-      if (dateFrom) q = q.gte('date', `${dateFrom}T00:00:00`)
-      if (dateTo)   q = q.lte('date', `${dateTo}T23:59:59.999`)
+      if (dateFrom) q = q.gte('date', new Date(dateFrom + 'T00:00:00').toISOString())
+      if (dateTo)   q = q.lte('date', new Date(dateTo + 'T23:59:59.999').toISOString())
 
       const { data, error } = await q
       if (error) throw error

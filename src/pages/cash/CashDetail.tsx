@@ -60,8 +60,8 @@ export function CashDetail() {
         .eq('cash_register_id', id)
         .order('created_at', { ascending: false })
 
-      if (dateFrom) q = q.gte('created_at', `${dateFrom}T00:00:00`)
-      if (dateTo)   q = q.lte('created_at', `${dateTo}T23:59:59.999`)
+      if (dateFrom) q = q.gte('created_at', new Date(dateFrom + 'T00:00:00').toISOString())
+      if (dateTo)   q = q.lte('created_at', new Date(dateTo + 'T23:59:59.999').toISOString())
 
       const { data, error } = await q
       if (error) throw error
