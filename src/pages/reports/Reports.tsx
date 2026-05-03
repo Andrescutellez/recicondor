@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, TrendingUp, ShoppingCart, DollarSign, Printer, FileText, ChevronDown, ChevronRight } from 'lucide-react'
+import { BarChart3, TrendingUp, ShoppingCart, DollarSign, Printer, FileText, ChevronDown, ChevronRight, List } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { supabase } from '../../lib/supabase'
@@ -8,11 +8,12 @@ import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { formatCOP, formatQty } from '../../lib/format'
 
-type Tab = 'summary' | 'cashflow' | 'purchases' | 'sales' | 'profit'
+type Tab = 'summary' | 'cashflow' | 'purchases' | 'sales' | 'profit' | 'extracto'
 
 const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'summary',   label: 'Resumen',              icon: <FileText className="w-4 h-4" /> },
   { key: 'cashflow',  label: 'Flujo de Caja',        icon: <DollarSign className="w-4 h-4" /> },
+  { key: 'extracto',  label: 'Extracto',             icon: <List className="w-4 h-4" /> },
   { key: 'purchases', label: 'Compras x Material',   icon: <ShoppingCart className="w-4 h-4" /> },
   { key: 'sales',     label: 'Ventas x Material',    icon: <TrendingUp className="w-4 h-4" /> },
   { key: 'profit',    label: 'Rentabilidad',          icon: <BarChart3 className="w-4 h-4" /> },
@@ -75,6 +76,7 @@ export function Reports() {
       {/* Tab content */}
       {activeTab === 'summary'   && <DailyReport  dateFrom={dateFrom} dateTo={dateTo} />}
       {activeTab === 'cashflow'  && <CashFlowReport dateFrom={dateFrom} dateTo={dateTo} />}
+      {activeTab === 'extracto'  && <ExtractoReport dateFrom={dateFrom} dateTo={dateTo} />}
       {activeTab === 'purchases' && <PurchasesByMaterial dateFrom={dateFrom} dateTo={dateTo} />}
       {activeTab === 'sales'     && <SalesByMaterial dateFrom={dateFrom} dateTo={dateTo} />}
       {activeTab === 'profit'    && <ProfitReport dateFrom={dateFrom} dateTo={dateTo} />}
@@ -394,6 +396,192 @@ function SummarySaleList({ sales }: { sales: SaleRow[] }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ─── Extracto de movimientos ─────────────────────────────────────────────────
+
+interface MovimientoRow {
+  id: string
+  type: string
+  amount: number
+  reference_type: string
+  description: string | null
+  created_at: string
+  cash_register: { name: string } | null
+  user: { name: string } | null
+}
+
+const movMeta = (type: string, refType: string): { label: string; colorClass: string; pdfBg: string; pdfColor: string; sign: 1 | -1 } => {
+  if (type === 'income' && refType === 'sale')       return { label: 'Venta',               colorClass: 'bg-green-100 text-green-800',   pdfBg: '#dcfce7', pdfColor: '#166534', sign:  1 }
+  if (type === 'income' && refType === 'manual')     return { label: 'Recarga de caja',     colorClass: 'bg-blue-100 text-blue-800',     pdfBg: '#dbeafe', pdfColor: '#1e40af', sign:  1 }
+  if (type === 'income' && refType === 'adjustment') return { label: 'Ajuste (+)',           colorClass: 'bg-blue-100 text-blue-800',     pdfBg: '#dbeafe', pdfColor: '#1e40af', sign:  1 }
+  if (type === 'transfer_in' || (type === 'income' && refType === 'transfer'))
+                                                     return { label: 'Transf. recibida',    colorClass: 'bg-violet-100 text-violet-800', pdfBg: '#ede9fe', pdfColor: '#5b21b6', sign:  1 }
+  if (type === 'expense' && refType === 'purchase')  return { label: 'Compra',              colorClass: 'bg-red-100 text-red-800',       pdfBg: '#fee2e2', pdfColor: '#991b1b', sign: -1 }
+  if (type === 'expense' && refType === 'expense')   return { label: 'Gasto',               colorClass: 'bg-orange-100 text-orange-800', pdfBg: '#ffedd5', pdfColor: '#c2410c', sign: -1 }
+  if (type === 'expense' && refType === 'adjustment')return { label: 'Ajuste (-)',           colorClass: 'bg-orange-100 text-orange-800', pdfBg: '#ffedd5', pdfColor: '#c2410c', sign: -1 }
+  if (type === 'transfer_out')                       return { label: 'Transf. enviada',     colorClass: 'bg-violet-100 text-violet-800', pdfBg: '#ede9fe', pdfColor: '#5b21b6', sign: -1 }
+  return { label: type, colorClass: 'bg-gray-100 text-gray-700', pdfBg: '#f3f4f6', pdfColor: '#374151', sign: 1 }
+}
+
+function ExtractoReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['report_extracto', dateFrom, dateTo],
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from('cash_movements')
+        .select('id, type, amount, reference_type, description, created_at, cash_register:cash_registers(name), user:profiles!user_id(name)')
+        .gte('created_at', `${dateFrom}T00:00:00`)
+        .lte('created_at', `${dateTo}T23:59:59.999`)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (rows ?? []) as unknown as MovimientoRow[]
+    },
+  })
+
+  const handlePrint = useCallback(() => {
+    if (!data) return
+    const fmtDate = (d: string) => format(new Date(d), "d MMM yyyy, HH:mm", { locale: es })
+    const fmtCOP  = (n: number) => `$ ${Math.round(n).toLocaleString('es-CO')}`
+
+    const totalIn   = data.filter(m => m.type === 'income' || m.type === 'transfer_in').reduce((s, m) => s + m.amount, 0)
+    const totalOut  = data.filter(m => m.type === 'expense' || m.type === 'transfer_out').reduce((s, m) => s + m.amount, 0)
+    const flujoNeto = totalIn - totalOut
+
+    const periodLabel = dateFrom === dateTo
+      ? format(new Date(dateFrom), "d 'de' MMMM yyyy", { locale: es })
+      : `${format(new Date(dateFrom), "d MMM yyyy", { locale: es })} al ${format(new Date(dateTo), "d MMM yyyy", { locale: es })}`
+
+    const rowsHTML = data.length === 0
+      ? '<tr><td colspan="5" style="text-align:center;color:#999;padding:16px">Sin movimientos en el período</td></tr>'
+      : data.map(m => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const cr  = (Array.isArray(m.cash_register) ? m.cash_register[0] : m.cash_register) as { name: string } | null
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const usr = (Array.isArray(m.user) ? m.user[0] : m.user) as { name: string } | null
+          const { label, pdfBg, pdfColor, sign } = movMeta(m.type, m.reference_type)
+          return `<tr>
+            <td>${fmtDate(m.created_at)}</td>
+            <td><span style="background:${pdfBg};color:${pdfColor};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap">${label}</span></td>
+            <td>${m.description ?? '—'}</td>
+            <td style="color:#6b7280;font-size:11px">${[cr?.name, usr?.name].filter(Boolean).join(' · ') || '—'}</td>
+            <td class="right bold" style="color:${sign > 0 ? '#166534' : '#991b1b'}">${sign > 0 ? '+' : '-'}${fmtCOP(m.amount)}</td>
+          </tr>`
+        }).join('')
+
+    const html = `<!DOCTYPE html><html lang="es">
+<head><meta charset="utf-8"><title>Extracto — ${periodLabel}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;color:#111;padding:20px 24px}
+  h1{font-size:20px;font-weight:700;color:#166534}
+  .sub-title{color:#555;font-size:12px;margin:2px 0 16px}
+  h2{font-size:13px;font-weight:700;color:#166534;margin:20px 0 6px;border-bottom:1.5px solid #bbf7d0;padding-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
+  table{width:100%;border-collapse:collapse;margin-bottom:4px}
+  th{background:#f0fdf4;font-weight:600;text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;color:#555;border-bottom:2px solid #bbf7d0}
+  td{padding:5px 8px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+  .right{text-align:right}
+  .bold{font-weight:600}
+  .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+  .card{border:1px solid #d1fae5;border-radius:8px;padding:10px 12px}
+  .card .label{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.04em}
+  .card .value{font-size:18px;font-weight:700;margin-top:2px}
+  .generated{font-size:10px;color:#999;margin-top:20px;border-top:1px solid #eee;padding-top:8px}
+  @media print{body{padding:10px 14px}}
+</style></head>
+<body>
+  <h1>Recicondor — Colina Verde</h1>
+  <p class="sub-title">Extracto de movimientos · ${periodLabel}</p>
+
+  <div class="summary">
+    <div class="card"><div class="label">Total entradas</div><div class="value" style="color:#166534">${fmtCOP(totalIn)}</div></div>
+    <div class="card"><div class="label">Total salidas</div><div class="value" style="color:#991b1b">${fmtCOP(totalOut)}</div></div>
+    <div class="card"><div class="label">Flujo neto</div><div class="value" style="color:${flujoNeto >= 0 ? '#166534' : '#991b1b'}">${fmtCOP(flujoNeto)}</div></div>
+  </div>
+
+  <h2>Movimientos (${data.length})</h2>
+  <table>
+    <thead><tr><th>Fecha y hora</th><th>Tipo</th><th>Descripción</th><th>Caja / Usuario</th><th class="right">Monto</th></tr></thead>
+    <tbody>${rowsHTML}</tbody>
+    <tfoot>
+      <tr style="border-top:2px solid #d1fae5">
+        <td colspan="4" style="text-align:right;font-weight:600;padding:6px 8px">FLUJO NETO</td>
+        <td class="right bold" style="color:${flujoNeto >= 0 ? '#166534' : '#991b1b'}">${flujoNeto >= 0 ? '+' : ''}${fmtCOP(flujoNeto)}</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <p class="generated">Generado el ${format(new Date(), "d 'de' MMMM yyyy, HH:mm", { locale: es })} · Recicondor ID 50863</p>
+</body></html>`
+
+    const win = window.open('', '_blank', 'width=900,height=700')
+    if (!win) { alert('Permite las ventanas emergentes para imprimir'); return }
+    win.document.write(html)
+    win.document.close()
+    setTimeout(() => { win.print() }, 400)
+  }, [data, dateFrom, dateTo])
+
+  if (isLoading) return <p className="text-sm text-gray-400 py-6 text-center">Cargando extracto...</p>
+  if (!data) return null
+
+  const totalIn   = data.filter(m => m.type === 'income' || m.type === 'transfer_in').reduce((s, m) => s + m.amount, 0)
+  const totalOut  = data.filter(m => m.type === 'expense' || m.type === 'transfer_out').reduce((s, m) => s + m.amount, 0)
+  const flujoNeto = totalIn - totalOut
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-700">Todos los movimientos de caja</h3>
+        <Button size="sm" variant="secondary" icon={<Printer className="w-4 h-4" />} onClick={handlePrint}>
+          Imprimir / PDF
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <Card><p className="text-xs text-gray-500">Total entradas</p><p className="text-lg font-bold text-green-700 mt-0.5">{formatCOP(totalIn)}</p></Card>
+        <Card><p className="text-xs text-gray-500">Total salidas</p><p className="text-lg font-bold text-red-700 mt-0.5">{formatCOP(totalOut)}</p></Card>
+        <Card><p className="text-xs text-gray-500">Flujo neto</p><p className={`text-lg font-bold mt-0.5 ${flujoNeto >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatCOP(flujoNeto)}</p></Card>
+      </div>
+
+      <Card padding={false}>
+        {data.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-gray-400">Sin movimientos en el período</p>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {data.map(m => {
+              const meta = movMeta(m.type, m.reference_type)
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const cr   = (Array.isArray(m.cash_register) ? (m.cash_register as any)[0] : m.cash_register) as { name: string } | null
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const usr  = (Array.isArray(m.user) ? (m.user as any)[0] : m.user) as { name: string } | null
+              return (
+                <div key={m.id} className="px-4 py-3 flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${meta.colorClass}`}>
+                        {meta.label}
+                      </span>
+                      {m.description && (
+                        <span className="text-sm text-gray-700 truncate">{m.description}</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {format(new Date(m.created_at), "d MMM yyyy, HH:mm", { locale: es })}
+                      {cr  && <> · {cr.name}</>}
+                      {usr && <> · {usr.name}</>}
+                    </p>
+                  </div>
+                  <p className={`text-sm font-semibold whitespace-nowrap tabular-nums ${meta.sign > 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    {meta.sign > 0 ? '+' : '-'}{formatCOP(m.amount)}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </Card>
     </div>
   )
 }
